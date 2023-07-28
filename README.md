@@ -1,92 +1,108 @@
-# Resum-Parsing-Using-NLP
+# CV Parsing using Spacy
 
-## Description-
-Gone are the days when recruiters used to manually screen resumes for a long time. Sifting through thousands of candidates' resumes for a job is no more a challenging task- all thanks to resume parsers. Resume parsers use machine learning technology to help recruiters search thousands of resumes in an intelligent manner so they can screen the right candidate for a job interview.
+CV Parsing using Spacy is a personal project that demonstrates how to extract information from resumes (CVs) using the powerful natural language processing library, Spacy. The project focuses on creating a custom named entity recognition (NER) model to identify specific entities in the resume text, such as names, work experiences, and years of experience.
 
-In this data science project, I have build an NLP algorithm that parses a resume and looks for the words (skills) mentioned in the job description. I have used the Phrase Matcher feature of the NLP library Spacy that does "word/phrase" matching for the resume documents. The resume parser then counts the occurrence of words (skills) under various categories for each resume that helps recruiters screen ideal candidates for a job.
+## Requirements
 
-## Import Packages-
+To run this project, you'll need the following libraries and tools:
+
+- Python 3.x
+- Spacy
+- spacy-transformers
+- tqdm
+- json
+- scikit-learn
+- PyMuPDF
+- NVIDIA GPU (optional but recommended for faster training)
+
+## Installation
+
+First, install the necessary dependencies:
+
+```bash
+pip install spacy spacy-transformers tqdm scikit-learn PyMuPDF
 ```
+
+## Data
+
+The training data for this project is stored in a JSON format with annotated entities. You can find the data in the `data/training/train_data.json` file. The data contains resume texts along with their annotated entities like names, work experiences, and more.
+
+## Training
+
+1. Install NVIDIA GPU drivers (if available) to enable faster training using the GPU.
+2. Clone the project repository from GitHub:
+
+```bash
+git clone https://github.com/laxmimerit/CV-Parsing-using-Spacy-3.git
+```
+
+3. Initialize the Spacy configuration file:
+
+```bash
+python -m spacy init fill-config /path/to/CV-Parsing-using-Spacy-3/data/training/base_config.cfg /path/to/CV-Parsing-using-Spacy-3/data/training/config.cfg
+```
+
+4. Train the custom NER model using the training data:
+
+```bash
+python -m spacy train /path/to/CV-Parsing-using-Spacy-3/data/training/config.cfg --output ./output --paths.train ./train_data.spacy --paths.dev ./test_data.spacy --gpu-id 0
+```
+
+The trained model will be saved in the `output` directory.
+
+## Parsing Resumes
+
+After training the model, you can use it to parse resumes and extract relevant information:
+
+```python
 import spacy
-from spacy.tokens import DocBin
-from tqdm import tqdm
-import json
-from sklearn.model_selection import train_test_split
+
+# Load the trained model
+nlp = spacy.load('/content/output/model-best')
+
+# Sample resume text
+resume_text = 'my name is Utkarsh Singh. I worked at Google. I have 10 years of experience'
+
+# Process the resume text with the model
+doc = nlp(resume_text)
+
+# Print extracted entities
+for ent in doc.ents:
+    print(ent.text, "->", ent.label_)
 ```
 
-## Dataset-
-I used pre-labeled data from GitHub. Although we may use data labelling tools such as Label Studio, this will take a long time. \
-```
-!git clone https://github.com/laxmimerit/CV-Parsing-using-Spacy-3.git
-```
-## Load data-
-```
-cv_data = json.load(open('/content/CV-Parsing-using-Spacy-3/data/training/train_data.json', 'r'))
-```
-## Pre-Build Config file-
-https://spacy.io/usage/training#training-data
-## init fill-config
-After you’ve saved the starter config to a file base_config.cfg, you can use the init fill-config command to fill in the remaining defaults. Training configs should always be complete and without hidden defaults, to keep your experiments reproducible.
-```
-python -m spacy init fill-config base_config.cfg config.cfg
-```
-## Spacy Document
-```
-def get_spacy_doc(file,data):
-  nlp = spacy.blank('en')
-  db = DocBin()
+## Parsing PDF Resumes
 
-  for text, annot in tqdm(data):
-    doc = nlp.make_doc(text)
-    annot = annot['entities']
+The project also includes functionality to parse resumes from PDF files:
 
-    ents = []
-    entitiy_indices = []
+```python
+import spacy
+import fitz
 
-    for start, end, label in annot:
-      skip_entity = False
-      for idx in range(start, end):
-        if idx in entitiy_indices:
-          skip_entity = True
-          break
-      if skip_entity ==True:
-        continue
+# Load the trained model
+nlp = spacy.load('/content/output/model-best')
 
-      entitiy_indices = entitiy_indices + list(range(start, end))
+# Path to the PDF file containing the resume
+pdf_file = '/content/CV-Parsing-using-Spacy-3/data/test/Alice Clark CV.pdf'
 
-      try:
-        span = doc.char_span(start, end, label=label, alignment_mode='strict')
-      except:
-        continue
+# Extract text from the PDF
+pdf_document = fitz.open(pdf_file)
+text = " "
+for page in pdf_document:
+    text += page.get_text()
+text = text.strip()
+text = ' '.join(text.split())
 
-      if span is None:
-        err_data = str([start, end]) +"  "+ str(text)+ "\n"
-        file.write(err_data)
-      else:
-        ents.append(span)
-  try:
-    doc.ents = ents
-    db.add(doc)
-  except:
-    pass
-  return db
-```
-## Split data-
-```
-train, test = train_test_split(cv_data, test_size = 0.3)
-```
-## Error data storage file
-```
-file = open('error.txt','w', encoding='utf-8')
-db = get_spacy_doc(file, train)
-db.to_disk('train_data.spacy')
-db = get_spacy_doc(file, test)
-db.to_disk('test_data.spacy')
+# Process the text with the model
+doc = nlp(text)
 
-file.close()
+# Print extracted entities
+for ent in doc.ents:
+    print(ent.text, "--------->", ent.label_)
 ```
-## init config
-Instead of exporting your starter config from the quickstart widget and auto-filling it, you can also use the init config command and specify your requirement and settings as CLI arguments. You can now add your data and run train with your config. See the convert command for details on how to convert your data to spaCy’s binary .spacy format. You can either include the data paths in the [paths] section of your config, or pass them in via the command line.
-```
-python -m spacy train config.cfg --output ./output --paths.train ./train.spacy --paths.dev ./dev.spacy
-```
+
+## Conclusion
+
+CV Parsing using Spacy is a valuable project that showcases the power of Spacy and demonstrates how to create custom NER models to extract specific information from resumes. This project can be extended to handle various types of documents and help in automating information extraction tasks in real-world applications. Feel free to explore the project further and customize it to suit your specific needs.
+
+Happy parsing!
